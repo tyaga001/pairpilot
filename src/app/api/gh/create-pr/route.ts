@@ -5,7 +5,7 @@ import { createPullRequest } from "@/lib/github";
 interface Payload { roomId: string; filename: string; content: string }
 
 export async function POST(req: Request) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const body = (await req.json()) as Payload;

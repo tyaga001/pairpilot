@@ -1,11 +1,11 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import {
   StreamVideo, StreamCall, StreamTheme,
-  SpeakerLayout, PaginatedGridLayout, CallControls, type Call,
+  SpeakerLayout, PaginatedGridLayout, CallControls, type Call, StreamVideoClient,
 } from "@stream-io/video-react-sdk";
 import { getVideoClient } from "@/lib/stream-video";
 import dynamic from "next/dynamic";
@@ -20,12 +20,53 @@ export default function RoomPage() {
   const router = useRouter();
   const { user } = useUser();
 
-  const [client, setClient] = useState<any>(null);
+  const [client, setClient] = useState<StreamVideoClient | null>(null);
   const [call, setCall] = useState<Call | null>(null);
   const [code, setCode] = useState<string>("// Start coding together…\n");
 
   const [layout, setLayout] = useQueryState("layout", parseAsString.withDefault("speaker"));
   const [showChat, setShowChat] = useQueryState("chat", parseAsString.withDefault("1"));
+
+  const copyInvite = useCallback(async () => {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    if (!url) return;
+    await navigator.clipboard.writeText(url);
+    alert("Invite link copied!");
+  }, []);
+
+  const shareCodeToChat = useCallback(async () => {
+    const res = await fetch("/api/chat/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        roomId: id,
+        text: "```ts\n" + code + "\n```",
+      }),
+    });
+    if (!res.ok) alert("Failed to share code");
+  }, [code, id]);
+
+  const onCreatePR = useCallback(async () => {
+    const filename = "snippet.ts";
+    const res = await fetch("/api/gh/create-pr", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomId: id, filename, content: code }),
+    });
+    const data = await res.json();
+
+    if (data?.url) {
+      alert(`Pull Request created:\n${data.url}\nCodeRabbit will review automatically.`);
+      // post the PR link to chat
+      await fetch("/api/chat/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId: id, text: `PR created: ${data.url}` }),
+      });
+    } else {
+      alert("PR creation failed");
+    }
+  }, [code, id]);
 
   useEffect(() => {
     if (!user) return;
@@ -41,18 +82,6 @@ export default function RoomPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user?.id]);
 
-  const onCreatePR = async () => {
-    const filename = "snippet.ts";
-    const res = await fetch("/api/gh/create-pr", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roomId: id, filename, content: code }),
-    });
-    const data = await res.json();
-    if (data?.url) alert(`Pull Request created:\n${data.url}\nCodeRabbit will review automatically.`);
-    else alert("PR creation failed");
-  };
-
   if (!client || !call) return <div className="p-8">Joining…</div>;
 
   return (
@@ -62,6 +91,8 @@ export default function RoomPage() {
           <header className="sticky top-0 z-10 flex items-center gap-2 border-b bg-background px-2 py-2">
             <strong>PairPilot</strong><span className="opacity-70">· {id}</span>
             <div className="ml-auto flex items-center gap-2">
+              <button className="btn" onClick={copyInvite}>Copy invite</button>
+              <button className="btn" onClick={shareCodeToChat}>Share code</button>
               <button className="btn" onClick={() => setLayout("speaker")} disabled={layout === "speaker"}>Speaker</button>
               <button className="btn" onClick={() => setLayout("grid")} disabled={layout === "grid"}>Grid</button>
               <button className="btn" onClick={() => setShowChat(showChat === "1" ? "0" : "1")}>

@@ -1,0 +1,61 @@
+# PairPilot Project Rules
+
+## Project Overview
+This is a Next.js 15 pair programming application with:
+- Clerk authentication
+- Stream Video SDK for video calls
+- Stream Chat SDK for messaging
+- Monaco Editor for collaborative coding
+- GitHub integration for PR creation
+
+## Key Technologies
+- Next.js 15 with App Router
+- TypeScript
+- Clerk for authentication
+- Stream Video & Chat SDKs
+- Monaco Editor
+- Tailwind CSS
+- Turbopack for development
+
+## Authentication Flow
+- Clerk middleware handles auth at `/src/middleware.ts`
+- Public routes: `/`, `/sign-in(.*)`, `/sign-up(.*)`, `/r/(.*)`
+- API routes require authentication except public routes
+- Use `auth()` from `@clerk/nextjs/server` in API routes
+- Client-side uses `useUser()` and `useAuth()` hooks
+
+## API Routes Structure
+- `/api/stream/video-token` - Generate Stream video tokens
+- `/api/stream/chat-token` - Generate Stream chat tokens  
+- `/api/chat/send` - Send messages to Stream chat
+- `/api/gh/create-pr` - Create GitHub pull requests
+- `/api/gh/webhook` - Handle GitHub webhooks
+- `/api/debug/whoami` - Debug authentication
+
+## Environment Variables Required
+- NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+- CLERK_SECRET_KEY
+- VITE_STREAM_VIDEO_API_KEY
+- STREAM_VIDEO_API_SECRET
+- NEXT_PUBLIC_STREAM_CHAT_KEY
+- STREAM_CHAT_SECRET
+- GITHUB_TOKEN
+- PAIRPILOT_TARGET_REPO
+- GITHUB_WEBHOOK_SECRET
+
+## Common Issues
+- Middleware must be at `/src/middleware.ts` (not root)
+- API routes need `await auth()` in newer Clerk versions
+- Stream SDK requires proper environment variables
+- Room pages are public but API calls need authentication
+
+## File Structure
+- `/src/app/` - Next.js app router pages
+- `/src/components/` - React components
+- `/src/lib/` - Utility functions and SDK clients
+- `/src/middleware.ts` - Clerk authentication middleware
+
+## Development Notes
+- Uses Turbopack for faster development builds
+- Hot reload enabled for all components
+- Console logging enabled for debugging auth issues
