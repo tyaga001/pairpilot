@@ -1,45 +1,103 @@
+// src/app/r/[id]/prejoin/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAuth, useUser, RedirectToSignIn } from "@clerk/nextjs";
-import { StreamVideo, StreamTheme, CallPreview } from "@stream-io/video-react-sdk";
-import { getVideoClient } from "@/lib/stream-video";
-import "@stream-io/video-react-sdk/dist/css/styles.css";
+import {
+  StreamVideo, StreamCall, StreamTheme,
+  CallPreview, DeviceSettings, useCallStateHooks,
+  CallControls, useCall,
+  type Call, type StreamVideoClient,
+} from "@stream-io/video-react-sdk";
+import { getCall, getOrCreateVideoClient } from "@/lib/stream-video";
 
 export default function PrejoinPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { isSignedIn } = useAuth();
-  const { user } = useUser();
 
-  const [client, setClient] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // If not signed in, send to Clerk and come back here
-  if (isSignedIn === false) {
-    return <RedirectToSignIn redirectUrl={`/r/${id}/prejoin`} />;
-  }
+  const [isLoading, setIsLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [ctx, setCtx] = useState<{ call: Call; client: StreamVideoClient } | null>(null);
 
   useEffect(() => {
-    if (!user) return;
-    const u = { id: user.id, name: user.fullName ?? "User" };
-    getVideoClient(u)
-      .then(setClient)
-      .catch((e) => setError(String(e?.message ?? e)));
-  }, [user]);
+    let active = true;
+    (async () => {
+      try {
+        const [call, client] = await Promise.all([
+          getCall(id),
+          getOrCreateVideoClient()
+        ]);
+        if (!active) return;
+        setCtx({ call, client });
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "Failed to init video");
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [id]);
 
-  if (error) return <div className="p-8 text-red-600">Failed to initialize video: {error}</div>;
-  if (!client) return <div className="p-8">Loading…</div>;
+  if (isLoading) return <div className="p-8 text-center">Loading…</div>;
+  if (err || !ctx) return <div className="p-8 text-center text-red-500">Failed to initialize video: {err}</div>;
 
   return (
-    <StreamVideo client={client}>
-      <StreamTheme>
-        <div className="max-w-xl mx-auto p-6">
-          <h1 className="text-xl font-semibold mb-3">Ready to join?</h1>
-          <CallPreview onJoin={() => router.push(`/r/${id}`)} />
-        </div>
-      </StreamTheme>
+    <StreamVideo client={ctx.client}>
+      <StreamCall call={ctx.call}>
+        <StreamTheme>
+          <PrejoinInner onJoin={() => router.push(`/r/${id}`)} />
+        </StreamTheme>
+      </StreamCall>
     </StreamVideo>
+  );
+}
+
+function PrejoinInner({ onJoin }: { onJoin: () => void }) {
+  const { useMicrophoneState, useCameraState } = useCallStateHooks();
+  const mic = useMicrophoneState();
+  const cam = useCameraState();
+  const call = useCall();
+
+  async function join() {
+    try {
+      // Enable camera and microphone if available
+      if (cam.camera) await cam.camera.enable();
+      if (mic.microphone) await mic.microphone.enable();
+      
+      // Join the call
+      if (call) await call.join({ create: true });
+    } catch (error) {
+      console.warn('Failed to enable devices or join call:', error);
+    }
+    onJoin();
+  }
+
+  // Save call reference for devtools / fallback
+  if (typeof window !== 'undefined' && call) {
+    (window as typeof window & { streamCall?: Call }).streamCall = call;
+  }
+
+  return (
+    <div className="max-w-3xl mx-auto py-10 space-y-6">
+      <h1 className="text-center text-xl font-semibold">Ready to join?</h1>
+
+      <div className="rounded-lg border p-4">
+        <CallPreview />
+      </div>
+
+      <div className="rounded-lg border p-4">
+        <DeviceSettings />
+      </div>
+
+      <div className="flex items-center justify-center gap-3">
+        <CallControls />
+        <button
+          onClick={join}
+          className="px-4 py-2 rounded-md bg-primary text-primary-foreground"
+        >
+          Join now
+        </button>
+      </div>
+    </div>
   );
 }

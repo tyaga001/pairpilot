@@ -1,27 +1,32 @@
+// src/lib/stream-video.ts
 "use client";
-import { StreamVideoClient, type User } from "@stream-io/video-react-sdk";
 
-let cached: { client: StreamVideoClient; userId: string } | null = null;
+import { StreamVideoClient, type Call, type User } from "@stream-io/video-react-sdk";
+
+let clientSingleton: StreamVideoClient | null = null;
+
+async function fetchVideoToken() {
+  const r = await fetch("/api/stream/video-token", { method: "POST" });
+  if (!r.ok) throw new Error(`video token: ${r.status}`);
+  return r.json() as Promise<{ token: string; apiKey: string }>;
+}
+
+export async function getOrCreateVideoClient(): Promise<StreamVideoClient> {
+  if (clientSingleton) return clientSingleton;
+  const { token, apiKey } = await fetchVideoToken();
+  clientSingleton = new StreamVideoClient({ apiKey, user: { id: "me" }, token });
+  return clientSingleton;
+}
 
 export async function getVideoClient(user: User): Promise<StreamVideoClient> {
-  if (cached?.client && cached.userId === user.id) return cached.client;
+  // For now, we'll use the singleton approach but could be enhanced to support multiple users
+  if (clientSingleton) return clientSingleton;
+  const { token, apiKey } = await fetchVideoToken();
+  clientSingleton = new StreamVideoClient({ apiKey, user, token });
+  return clientSingleton;
+}
 
-  const res = await fetch("/api/stream/video-token", { 
-    method: "POST",
-    credentials: "include"
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({} as any));
-    throw new Error(err?.error || `video token failed (${res.status})`);
-  }
-  const { token, apiKey } = (await res.json()) as { token: string; apiKey: string };
-
-  const client = new StreamVideoClient({
-    apiKey,
-    user,
-    tokenProvider: async () => token,
-  });
-
-  cached = { client, userId: user.id };
-  return client;
+export async function getCall(roomId: string): Promise<Call> {
+  const client = await getOrCreateVideoClient();
+  return client.call("default", roomId);
 }

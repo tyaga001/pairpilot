@@ -1,165 +1,111 @@
 "use client";
 
-import { Suspense, useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import {
   StreamVideo, StreamCall, StreamTheme,
-  SpeakerLayout, PaginatedGridLayout, CallControls, type Call, StreamVideoClient,
+  SpeakerLayout, PaginatedGridLayout, CallControls, useCallStateHooks,
+  type Call, type StreamVideoClient,
 } from "@stream-io/video-react-sdk";
-import { getVideoClient } from "@/lib/stream-video";
-import { useToast } from "@/components/ui/use-toast";
-import dynamic from "next/dynamic";
-import { parseAsString, useQueryState } from "nuqs";
+import { getCall, getOrCreateVideoClient } from "@/lib/stream-video";
 import "@stream-io/video-react-sdk/dist/css/styles.css";
-
-const ChatPanel = dynamic(() => import("@/components/chat-panel/chat-panel"), { ssr: false });
-const Editor = dynamic(() => import("@/components/editor/editor"), { ssr: false });
 
 export default function RoomPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
-  const { user } = useUser();
-  const { toast } = useToast();
-
-  const [client, setClient] = useState<StreamVideoClient | null>(null);
-  const [call, setCall] = useState<Call | null>(null);
-  const [code, setCode] = useState<string>("// Start coding together…\n");
-
-  const [layout, setLayout] = useQueryState("layout", parseAsString.withDefault("speaker"));
-  const [showChat, setShowChat] = useQueryState("chat", parseAsString.withDefault("1"));
-
-  const copyInvite = useCallback(async () => {
-    const url = typeof window !== "undefined" ? window.location.href : "";
-    if (!url) return;
-    await navigator.clipboard.writeText(url);
-    toast({
-      title: "Invite link copied!",
-      description: "Share this link with your pair programming partner.",
-    });
-  }, [toast]);
-
-  const shareCodeToChat = useCallback(async () => {
-    const res = await fetch("/api/chat/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        roomId: id,
-        text: "```ts\n" + code + "\n```",
-      }),
-    });
-    if (!res.ok) {
-      toast({
-        title: "Failed to share code",
-        description: "Please try again.",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Code shared to chat",
-        description: "Your code has been posted to the chat.",
-      });
-    }
-  }, [code, id, toast]);
-
-  const onCreatePR = useCallback(async () => {
-    const filename = "snippet.ts";
-    const res = await fetch("/api/gh/create-pr", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roomId: id, filename, content: code }),
-    });
-    const data = await res.json();
-
-    if (data?.url) {
-      toast({
-        title: "Pull Request created!",
-        description: (
-          <div className="space-y-1">
-            <p>CodeRabbit will review automatically.</p>
-            <a 
-              href={data.url} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-800 underline text-sm"
-            >
-              View PR →
-            </a>
-          </div>
-        ),
-      });
-      // post the PR link to chat
-      await fetch("/api/chat/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId: id, text: `PR created: ${data.url}` }),
-      });
-    } else {
-      toast({
-        title: "PR creation failed",
-        description: "Please check your GitHub configuration and try again.",
-        variant: "destructive",
-      });
-    }
-  }, [code, id, toast]);
+  
+  const [ctx, setCtx] = useState<{ call: Call; client: StreamVideoClient } | null>(null);
+  const [layout, setLayout] = useState<"speaker" | "grid">("speaker");
 
   useEffect(() => {
-    if (!user) return;
-    const u = { id: user.id, name: user.fullName ?? "User" };
+    let active = true;
     (async () => {
-      const c = await getVideoClient(u);
-      setClient(c);
-      const callObj = c.call("default", id);
-      await callObj.join({ create: true });
-      setCall(callObj);
+      try {
+        const [call, client] = await Promise.all([
+          getCall(id),
+          getOrCreateVideoClient()
+        ]);
+        if (!active) return;
+        
+        await call.join({ create: true });
+        setCtx({ call, client });
+      } catch (error) {
+        console.error('Failed to join call:', error);
+      }
     })();
-    return () => { call?.leave().catch(() => {}); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, user?.id]);
+    return () => { 
+      active = false;
+      ctx?.call?.leave().catch(() => {});
+    };
+  }, [id]);
 
-  if (!client || !call) return <div className="p-8">Joining…</div>;
+  if (!ctx) return <div className="p-8 text-center">Joining…</div>;
 
   return (
-    <StreamVideo client={client}>
-      <StreamCall call={call}>
+    <StreamVideo client={ctx.client}>
+      <StreamCall call={ctx.call}>
         <StreamTheme>
-          <header className="sticky top-0 z-10 flex items-center gap-2 border-b bg-background px-2 py-2">
-            <strong>PairPilot</strong><span className="opacity-70">· {id}</span>
-            <div className="ml-auto flex items-center gap-2">
-              <button className="btn" onClick={copyInvite}>Copy invite</button>
-              <button className="btn" onClick={shareCodeToChat}>Share code</button>
-              <button className="btn" onClick={() => setLayout("speaker")} disabled={layout === "speaker"}>Speaker</button>
-              <button className="btn" onClick={() => setLayout("grid")} disabled={layout === "grid"}>Grid</button>
-              <button className="btn" onClick={() => setShowChat(showChat === "1" ? "0" : "1")}>
-                {showChat === "1" ? "Hide chat" : "Chat"}
-              </button>
-              <button className="btn" onClick={onCreatePR}>Create PR</button>
-            </div>
-          </header>
-
-          <main className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_360px] min-h-[calc(100svh-120px)]">
-            <div className="flex items-stretch justify-center p-2">
-              {layout === "speaker" ? <SpeakerLayout /> : <PaginatedGridLayout />}
-            </div>
-            <div className="border-l p-2 min-h-0">
-              <Suspense fallback={<div className="p-2 text-sm text-muted-foreground">Loading editor…</div>}>
-                <Editor roomId={id} value={code} onChange={setCode} />
-              </Suspense>
-            </div>
-            {showChat === "1" && (
-              <aside className="border-l p-2">
-                <Suspense fallback={<div className="p-2 text-sm text-muted-foreground">Loading chat…</div>}>
-                  <ChatPanel roomId={id} />
-                </Suspense>
-              </aside>
-            )}
-          </main>
-
-          <footer className="border-t p-2">
-            <CallControls onLeave={() => router.push("/")} />
-          </footer>
+          <MeetingRoom layout={layout} onLayoutChange={setLayout} />
         </StreamTheme>
       </StreamCall>
     </StreamVideo>
+  );
+}
+
+function MeetingRoom({ 
+  layout, 
+  onLayoutChange 
+}: { 
+  layout: "speaker" | "grid"; 
+  onLayoutChange: (layout: "speaker" | "grid") => void;
+}) {
+  const { useScreenShareState } = useCallStateHooks();
+  const screenShare = useScreenShareState();
+
+  // Auto-switch to speaker when someone shares screen
+  useEffect(() => {
+    if (screenShare.hasScreenShare) {
+      onLayoutChange("speaker");
+    }
+  }, [screenShare.hasScreenShare, onLayoutChange]);
+
+  return (
+    <div className="h-screen grid grid-cols-12 grid-rows-[1fr_auto]">
+      {/* Video Stage - 9 columns */}
+      <div className="col-span-9 bg-gray-900 flex items-center justify-center">
+        {layout === "speaker" ? <SpeakerLayout /> : <PaginatedGridLayout />}
+      </div>
+
+      {/* Side Panel - 3 columns */}
+      <div className="col-span-3 bg-gray-50 border-l flex items-center justify-center">
+        <p className="text-gray-600">Chat coming soon…</p>
+      </div>
+
+      {/* Footer - Full width */}
+      <div className="col-span-12 bg-white border-t p-4 flex items-center justify-between">
+        <CallControls />
+        <div className="flex gap-2">
+          <button
+            onClick={() => onLayoutChange("speaker")}
+            className={`px-3 py-1 rounded text-sm ${
+              layout === "speaker" 
+                ? "bg-blue-500 text-white" 
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+            }`}
+          >
+            Speaker
+          </button>
+          <button
+            onClick={() => onLayoutChange("grid")}
+            className={`px-3 py-1 rounded text-sm ${
+              layout === "grid" 
+                ? "bg-blue-500 text-white" 
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+            }`}
+          >
+            Grid
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
