@@ -1,28 +1,33 @@
-import Link from "next/link";
-import { randomBytes } from "crypto";
-import StartPairingButton from "@/components/start-pairing-button";
+import type { Metadata } from "next";
+import HomePage from "./home-page";
 
-function id(): string {
-  return randomBytes(6).toString("base64url").slice(0, 8);
-}
+export const metadata: Metadata = {
+  title: "PairPilot - Pair programming that feels instant",
+  description: "1-click room · video + chat · code threads · recordings. The fastest way to start pair programming with your team.",
+  keywords: ["pair programming", "collaborative coding", "video chat", "code review", "remote development"],
+  authors: [{ name: "PairPilot Team" }],
+  openGraph: {
+    title: "PairPilot - Pair programming that feels instant",
+    description: "1-click room · video + chat · code threads · recordings",
+    type: "website",
+    url: "https://pairpilot.dev",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "PairPilot - Pair programming interface with video, chat, and code editor",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "PairPilot - Pair programming that feels instant",
+    description: "1-click room · video + chat · code threads · recordings",
+    images: ["/og-image.png"],
+  },
+};
 
-export default function HomePage() {
-  return (
-    <main className="container mx-auto px-4 py-16">
-      <h1 className="text-3xl font-bold">PairPilot</h1>
-      <p className="mt-2 text-muted-foreground max-w-prose">
-        1-click pair programming with Stream video + chat and instant CodeRabbit PR reviews.
-      </p>
-
-      <div className="mt-6 flex gap-3">
-        <StartPairingButton />
-        <Link
-          href="/sign-in"
-          className="inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
-        >
-          Sign in
-        </Link>
-      </div>
-    </main>
-  );
+export default function Page() {
+  return <HomePage />;
 }

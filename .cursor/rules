@@ -59,3 +59,11 @@ This is a Next.js 15 pair programming application with:
 - Uses Turbopack for faster development builds
 - Hot reload enabled for all components
 - Console logging enabled for debugging auth issues
+
+## Guardrails (cursorrules)
+- Do not alter auth flow, middleware, or env names
+- Do not rename routes or files; only modify the files listed in each task
+- Prefer TypeScript, functional components, minimal use client
+- Keep styles in Tailwind/shadcn. No new CSS frameworks
+- Use Stream SDKs idiomatically; no homegrown WS logic
+- Keep changes small; land one task per commit

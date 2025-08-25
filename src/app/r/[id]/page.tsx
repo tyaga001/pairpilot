@@ -8,6 +8,7 @@ import {
   SpeakerLayout, PaginatedGridLayout, CallControls, type Call, StreamVideoClient,
 } from "@stream-io/video-react-sdk";
 import { getVideoClient } from "@/lib/stream-video";
+import { useToast } from "@/components/ui/use-toast";
 import dynamic from "next/dynamic";
 import { parseAsString, useQueryState } from "nuqs";
 import "@stream-io/video-react-sdk/dist/css/styles.css";
@@ -19,6 +20,7 @@ export default function RoomPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { user } = useUser();
+  const { toast } = useToast();
 
   const [client, setClient] = useState<StreamVideoClient | null>(null);
   const [call, setCall] = useState<Call | null>(null);
@@ -31,8 +33,11 @@ export default function RoomPage() {
     const url = typeof window !== "undefined" ? window.location.href : "";
     if (!url) return;
     await navigator.clipboard.writeText(url);
-    alert("Invite link copied!");
-  }, []);
+    toast({
+      title: "Invite link copied!",
+      description: "Share this link with your pair programming partner.",
+    });
+  }, [toast]);
 
   const shareCodeToChat = useCallback(async () => {
     const res = await fetch("/api/chat/send", {
@@ -43,8 +48,19 @@ export default function RoomPage() {
         text: "```ts\n" + code + "\n```",
       }),
     });
-    if (!res.ok) alert("Failed to share code");
-  }, [code, id]);
+    if (!res.ok) {
+      toast({
+        title: "Failed to share code",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Code shared to chat",
+        description: "Your code has been posted to the chat.",
+      });
+    }
+  }, [code, id, toast]);
 
   const onCreatePR = useCallback(async () => {
     const filename = "snippet.ts";
@@ -56,7 +72,22 @@ export default function RoomPage() {
     const data = await res.json();
 
     if (data?.url) {
-      alert(`Pull Request created:\n${data.url}\nCodeRabbit will review automatically.`);
+      toast({
+        title: "Pull Request created!",
+        description: (
+          <div className="space-y-1">
+            <p>CodeRabbit will review automatically.</p>
+            <a 
+              href={data.url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 underline text-sm"
+            >
+              View PR →
+            </a>
+          </div>
+        ),
+      });
       // post the PR link to chat
       await fetch("/api/chat/send", {
         method: "POST",
@@ -64,9 +95,13 @@ export default function RoomPage() {
         body: JSON.stringify({ roomId: id, text: `PR created: ${data.url}` }),
       });
     } else {
-      alert("PR creation failed");
+      toast({
+        title: "PR creation failed",
+        description: "Please check your GitHub configuration and try again.",
+        variant: "destructive",
+      });
     }
-  }, [code, id]);
+  }, [code, id, toast]);
 
   useEffect(() => {
     if (!user) return;

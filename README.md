@@ -1,36 +1,79 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PairPilot
 
-## Getting Started
+> Pair programming that feels instant
 
-First, run the development server:
+![PairPilot Landing Page](https://github.com/user-attachments/assets/pairpilot-landing-page.png)
+
+*Live demo showing video call, code editor, and team chat in action*
+
+**1-click room · video + chat · code threads · recordings**
+
+PairPilot is a modern pair programming platform built with Next.js, Stream Video/Chat SDKs, and Clerk authentication. Start coding together in seconds with integrated video calls, real-time chat, and collaborative code editing.
+
+## ✨ Features
+
+- **Instant Rooms** - One-click room creation with shareable links
+- **Video + Audio** - High-quality video calls powered by Stream
+- **Real-time Chat** - Threaded conversations with code sharing
+- **Code Collaboration** - Monaco editor with live collaboration
+- **GitHub Integration** - Create PRs directly from sessions
+- **Recording** - Automatic session recording and sharing
+
+## 🚀 Quick Start
 
 ```bash
+# Clone the repository
+git clone https://github.com/tyaga001/pairpilot.git
+cd pairpilot
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+# Create .env.local with your Clerk, Stream, and GitHub credentials
+
+# Start development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see PairPilot in action.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🛠 Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Framework**: Next.js 15 with App Router
+- **Authentication**: Clerk
+- **Video/Audio**: Stream Video SDK
+- **Chat**: Stream Chat SDK
+- **Styling**: Tailwind CSS + shadcn/ui
+- **Code Editor**: Monaco Editor
+- **Deployment**: Vercel
 
-## Learn More
+## 📝 Environment Variables
 
-To learn more about Next.js, take a look at the following resources:
+```env
+# Clerk Authentication
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Stream Video & Chat
+VITE_STREAM_VIDEO_API_KEY=
+STREAM_VIDEO_API_SECRET=
+NEXT_PUBLIC_STREAM_CHAT_KEY=
+STREAM_CHAT_SECRET=
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# GitHub Integration
+GITHUB_TOKEN=
+PAIRPILOT_TARGET_REPO=
+```
 
-## Deploy on Vercel
+## 🤝 Contributing
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+Built with ❤️ using [Stream](https://getstream.io), [Clerk](https://clerk.com), and [Next.js](https://nextjs.org)
